@@ -39,4 +39,14 @@ We executed the following SQL query:
                 AND C.customer_postal_code=:code
                 AND OS.oid=O.order_id
  Since the task was to rewrite the previous query without the use of the view, we used a subquery that perfomed the same task. We assumed that SQLite would create indices on the primary keys, namely order_id and customer_id, for Orders and Customers respectively. However, since we are looking for customers belonging to a specific postal code area we opted to create a composite index on customer_id + customer_postal_code, from the Customers table, then we created an index on customer_id and order_id from Orders. The first index will help us find more efficiently the customers who belong to the postal code we are concerned with and the second will speed up the process of finding orders that correspond to those customers.
-         
+ 
+ Query #4:
+ We executed the following SQL query:
+            SELECT COUNT(DISTINCT S.seller_postal_code)
+            FROM Order_items O, Sellers S
+            WHERE S.seller_id = O.seller_id AND O.order_id = :orderID
+ 
+Where orderID is randomly selected.
+
+We assumed that SQLite would create indices on the primary keys, namely "seller_id" and "order_id","order_item_id","product_id","seller_id" for Sellers and Order_items respectively. However those would not help since we are looking for specific order_id so we created a composite index on Sellers "seller_id, seller_postal_code" to prevent additional accesses to Sellers. Simmilarly, we created a composite index on Order_items "order_id, seller_id" to prevent additional accesses to Order_items.
+Note that no index creation, or other such code is included in the timing of the queries. Python overhead is included, however, to prevent repeated float addiitons for the timing which could accumulate inaccuracies, particularily in the very fast user optimized case.
