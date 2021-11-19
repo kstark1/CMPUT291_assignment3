@@ -1,5 +1,6 @@
 import sqlite3
 import matplotlib.pyplot as plt
+import math
 import random
 import timeit
 
@@ -182,6 +183,9 @@ def randomCode() -> list:
 def plot(uninformed, selfOptimized, userOptimized, width = 0.35):
     labels = ["SmallDB", "MediumDB", "LargeDB"]
     fig, ax = plt.subplots()
+
+    #Set the scale
+    #ax.set(ylim=(uninformed[0] - 0.01, uninformed[2] + selfOptimized[2] + userOptimized[2] + 0.01))
 
     #Construct where the bottom of the user optimized should be
     userBottom = []
