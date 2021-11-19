@@ -18,7 +18,7 @@ def Query(code):
     #The query to be executed
     query = '''SELECT COUNT(DISTINCT S.seller_postal_code)
             FROM Order_items O, Sellers S
-            WHERE S.seller_id = O.seller_id AND O.order_id = ?', (codes)
+            WHERE S.seller_id = O.seller_id AND O.order_id = :code
             '''
 
     #Executes the query using the code variable as the input
@@ -39,15 +39,7 @@ def Uninformed():
 
     #Set all relevant settings
     cursor.execute(' PRAGMA automatic_indexing=OFF; ')
-    #Create tables
-    cursor.execute('CREATE TABLE IF NOT EXISTS "SellersNew" ("seller_id" TEXT, "seller_postal_code" INTEGER);')
-    cursor.execute('INSERT INTO SellersNew SELECT seller_id, seller_postal_code FROM Sellers;')
-    cursor.execute('ALTER TABLE Sellers RENAME TO SellersOriginal;')
-    cursor.execute('ALTER TABLE SellersNew RENAME TO Sellers;')
-    cursor.execute('CREATE TABLE IF NOT EXISTS "Order_items_new" ("order_item_id" INTEGER, "order_id" TEXT, "product_id" TEXT, "seller_id" TEXT);')
-    cursor.execute('INSERT INTO Order_items_new SELECT order_item_id, order_id, product_id, seller_id FROM Order_items')
-    cursor.execute('ALTER TABLE Order_items RENAME TO Order_items_original;')
-    cursor.execute('ALTER TABLE Order_items_new RENAME TO Order_items;')
+    cursor.execute(' PRAGMA foerign_keys=OFF; ')
 
     #Commit the changes to the DB
     connection.commit()
@@ -55,14 +47,11 @@ def Uninformed():
 #Sets the databse into self-optimized mode
 def SelfOptimized():
     print("Setting Scenario Self-Optimized")
-    #Drop tables
-    cursor.execute('DROP TABLE Sellers;')
-    cursor.execute('ALTER TABLE SellersOriginal RENAME TO Sellers;')
-    cursor.execute('DROP TABLE Order_items;')
-    cursor.execute('ALTER TABLE Order_items_original RENAME TO Order_items;')
+
     #Set all relevant changes
     cursor.execute(' PRAGMA automatic_indexing=ON; ')
     cursor.execute(' PRAGMA foerign_keys=ON; ')
+    
 
     #Commit the changes to the DB
     connection.commit()
@@ -72,17 +61,8 @@ def UserOptimized():
     print("Setting Scenario User-Optimized")
 
     #Set all relevant changes
-    cursor.execute(' PRAGMA automatic_indexing=OFF; ')
-    
-    #Create tables
-    cursor.execute('CREATE TABLE IF NOT EXISTS "SellersNEW" (seller_id TEXT, seller_postal_code INTEGER, PRIMARY KEY (seller_id));')
-    cursor.execute('INSERT INTO SellersNEW SELECT seller_id, seller_postal_code FROM Sellers')
-    cursor.execute('ALTER TABLE Sellers RENAME TO SellersOriginal')
-    cursor.execute('ALTER TABLE SellersNEW RENAME TO Sellers')
-    cursor.execute('CREATE TABLE IF NOT EXISTS "Order_itemsNEW" (order_id TEXT, order_item_id INTEGER, product_id TEXT, seller_id TEXT, PRIMARY KEY(order_id, order_item_id, product_id, seller_id) FOREIGN KEY(seller_id) REFERENCES "Sellers"(seller_id), FOREIGN KEY(order_id) REFERENCES "Orders"(order_id))')
-    cursor.execute('INSERT INTO Order_itemsNEW SELECT order_id, order_item_id, product_id, seller_id FROM Order_items')
-    cursor.execute('ALTER TABLE Order_items RENAME TO Order_itemsOriginal')
-    cursor.execute('ALTER TABLE Order_itemsNEW RENAME TO Order_items')
+    cursor.execute(' PRAGMA automatic_indexing=ON; ')
+    cursor.execute(' PRAGMA foerign_keys=ON; ')
 
     #Commit the changes to the DB
     connection.commit()
