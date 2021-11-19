@@ -16,9 +16,10 @@ import timeit
 #Function which defines the query we are testing
 def Query(code):
     #The query to be executed
-    query = '''SELECT COUNT(*)
-               FROM Customers C
+    query = '''SELECT COUNT(O.order_id)
+               FROM Customers C, Orders O
                WHERE C.customer_postal_code = :code
+               AND C.customer_id = O.customer_id
     '''
 
     #Executes the query using the code variable as the input
@@ -37,9 +38,33 @@ def Query(code):
 def Uninformed():
     print("Setting Scenario Uninformed")
 
-    #Set all relevant settings
+    # -- Set all relevant settings --
     cursor.execute(' PRAGMA automatic_indexing=OFF; ')
-    cursor.execute(' PRAGMA foerign_keys=OFF; ')
+
+    #Make the new databses
+    cursor.execute('''CREATE TABLE "CustomersNew" (
+                            "customer_id"  TEXT, 
+                            "customer_postal_code"  INTEGER
+                    );''')
+
+    cursor.execute('''CREATE TABLE "OrdersNew" (
+                            "order_id"  TEXT, 
+                            "customer_id"  INTEGER
+                    );''')
+
+    cursor.execute('''INSERT INTO CustomersNew 
+                    SELECT customer_id, customer_postal_code 
+                    FROM Customers;''')
+
+    cursor.execute('''INSERT INTO OrdersNew 
+                    SELECT order_id, customer_id 
+                    FROM Orders;''')
+
+    cursor.execute("ALTER TABLE Customers RENAME TO CustomersOld")
+    cursor.execute("ALTER TABLE CustomersNew RENAME TO Customers")
+    
+    cursor.execute("ALTER TABLE Orders RENAME TO OrdersOld")
+    cursor.execute("ALTER TABLE OrdersNew RENAME TO Orders")
 
     #Commit the changes to the DB
     connection.commit()
@@ -50,7 +75,13 @@ def SelfOptimized():
 
     #Set all relevant changes
     cursor.execute(' PRAGMA automatic_indexing=ON; ')
-    cursor.execute(' PRAGMA foerign_keys=ON; ')
+
+    #Drop the databases from Uninformed
+    cursor.execute("DROP TABLE Customers;")
+    cursor.execute("ALTER TABLE CustomersOld RENAME TO Customers;")
+
+    cursor.execute("DROP TABLE Orders;")
+    cursor.execute("ALTER TABLE OrdersOld RENAME TO Orders;")
 
     #Commit the changes to the DB
     connection.commit()
@@ -61,10 +92,18 @@ def UserOptimized():
 
     #Set all relevant changes
     cursor.execute(' PRAGMA automatic_indexing=ON; ')
-    cursor.execute(' PRAGMA foerign_keys=ON; ')
+
+    #Set the index
+    cursor.execute('''CREATE INDEX customersIndex ON Customers (customer_postal_code, customer_id);''')
+    cursor.execute('''CREATE INDEX ordersIndex ON Orders (customer_id, order_id);''')
 
     #Commit the changes to the DB
     connection.commit()
+
+#Clean up the indexes
+def CleanUserOptimized():
+    cursor.execute("DROP INDEX IF EXISTS customersIndex;")
+    cursor.execute("DROP INDEX IF EXISTS ordersIndex")
 
 #Main function called on startup
 def main():
@@ -99,13 +138,19 @@ def main():
             print("    Running tests...")
             start = timeit.default_timer()
             for run in range(runCount):
-                Query(codes[run])
+                rows = Query(codes[run])
             elapsed = timeit.default_timer() - start
             scenarios[scenario][path_index] = elapsed
             print("    Tests finished...")
 
+            
+            #Drop the indexes made for user optimized
+            CleanUserOptimized()
+
             #Close the connection to this database
             connection.close()
+
+        
 
     print("Times: ")
     for scenario in scenarios.keys():
@@ -146,7 +191,7 @@ def plot(uninformed, selfOptimized, userOptimized, width = 0.35):
     #Add the bars to the graph
     bar = ax.bar(labels, uninformed, width, label="Uninformed", color = 'blue')
     bar = ax.bar(labels, selfOptimized, width, label="Self-Optimized", bottom = uninformed, color = 'red')
-    bar = ax.bar(labels, userOptimized, width, label="User-Optimized", bottom = userBottom, color = 'yellow')
+    bar = ax.bar(labels, userOptimized, width, label="User-Optimized", bottom = userBottom, color = 'green')
 
     #add labels and the legend
     ax.set_ylabel("Time (s)")
@@ -160,6 +205,7 @@ def connect(path):
     global connection, cursor
     connection = sqlite3.connect(path)
     cursor = connection.cursor()
+    cursor.execute(' PRAGMA foerign_keys=ON; ')
     connection.commit()
 
 
