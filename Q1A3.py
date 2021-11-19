@@ -140,7 +140,7 @@ def main():
             for run in range(runCount):
                 rows = Query(codes[run])
             elapsed = timeit.default_timer() - start
-            scenarios[scenario][path_index] = elapsed
+            scenarios[scenario][path_index] = elapsed / runCount
             print("    Tests finished...")
 
             
@@ -194,7 +194,7 @@ def plot(uninformed, selfOptimized, userOptimized, width = 0.35):
     bar = ax.bar(labels, userOptimized, width, label="User-Optimized", bottom = userBottom, color = 'green')
 
     #add labels and the legend
-    ax.set_ylabel("Time (s)")
+    ax.set_ylabel("Average Run Time (s)")
     ax.set_title("Query 1")
     ax.legend()
 
