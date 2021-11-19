@@ -14,15 +14,15 @@ import timeit
 #--------------------------------------------------------
 
 #Function which defines the query we are testing
-def Query(code):
+def Query(orderID):
     #The query to be executed
     query = '''SELECT COUNT(DISTINCT S.seller_postal_code)
             FROM Order_items O, Sellers S
-            WHERE S.seller_id = O.seller_id AND O.order_id = :code
+            WHERE S.seller_id = O.seller_id AND O.order_id = :orderID
             '''
 
     #Executes the query using the code variable as the input
-    cursor.execute(query, {"code": code})
+    cursor.execute(query, {"orderID": orderID})
 
     #Get the list of returned tuples
     rows = cursor.fetchall()
@@ -45,7 +45,7 @@ def Uninformed():
                     seller_id TEXT,
                     seller_postal_code INTEGER);''')
 
-    cursor.execute('''CREATE TABLE "Order_itemsNew" (
+    cursor.execute('''CREATE TABLE IF NOT EXISTS "Order_itemsNew" (
                             order_id TEXT,
                             order_item_id INTEGER,
                             product_id TEXT,
@@ -60,10 +60,10 @@ def Uninformed():
                     FROM Order_items;''')
 
 
-
+    cursor.execute("DROP TABLE IF EXISTS SellersOId")
     cursor.execute("ALTER TABLE Sellers RENAME TO SellersOId")
     cursor.execute("ALTER TABLE SellersNew RENAME TO Sellers")
-    
+    cursor.execute("DROP TABLE IF EXISTS Order_itemsOId")
     cursor.execute("ALTER TABLE Order_items RENAME TO Order_itemsOId")
     cursor.execute("ALTER TABLE Order_itemsNew RENAME TO Order_items")
 
@@ -94,8 +94,8 @@ def UserOptimized():
     cursor.execute(' PRAGMA automatic_indexing=ON; ')
     
     #Set the index
-    cursor.execute("CREATE INDEX sellersIndex ON Sellers (seller_id);")
-    cursor.execute("CREATE INDEX ordersItemsIndex ON Order_items (order_id);")
+    cursor.execute("CREATE INDEX sellersIndex ON Sellers(seller_id, seller_postal_code)")
+    cursor.execute("CREATE INDEX ordersItemsIndex ON Order_items(order_id, seller_id)")
     
 
     #Commit the changes to the DB
@@ -131,14 +131,14 @@ def main():
             scenario()
 
             #Get all 50 random inputs ahead of time so it doesnt effect the timing code
-            codes = randomCode()
+            orderIDs = randomOrderID()
             
             #Time the 50 runs and store in the corresponding list
             #NOTE: this timing method includes the python overhead, but I decided it was preferable to repeated small float additions which can accumulate inaccuracy. This way, any overhead should be constant between all databases and scenarios.
             print("    Running tests...")
             start = timeit.default_timer()
             for run in range(runCount):
-                Query(codes[run])
+                Query(orderIDs[run])
             elapsed = timeit.default_timer() - start
             scenarios[scenario][path_index] = elapsed
             print("    Tests finished...")
@@ -160,21 +160,21 @@ def main():
 #--------------------------------------------------------
 
 #NOTE: this function is not super fast, but it works, make sure it is not included in the timing code
-def randomCode() -> list:
-    query = '''SELECT C.customer_postal_code
-               FROM Customers C
-               ORDER BY RANDOM()
-               LIMIT ''' + str(runCount)
+def randomOrderID() -> list:
+    query = '''SELECT order_id 
+                FROM Orders
+                ORDER BY RANDOM()
+                LIMIT ''' + str(runCount)
     cursor.execute(query)
     rows = cursor.fetchall()
 
-    #extract all the codes form their tuple
-    codes = []
+    #extract all the order_ids form their tuple
+    orderIDs = []
     for row in rows:
-        codes.append(row[0])
+        orderIDs.append(row[0])
 
     connection.commit()
-    return codes
+    return orderIDs
 
 def plot(uninformed, selfOptimized, userOptimized, width = 0.5):
     labels = ["SmallDB", "MediumDB", "LargeDB"]
