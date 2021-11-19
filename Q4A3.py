@@ -39,7 +39,33 @@ def Uninformed():
 
     #Set all relevant settings
     cursor.execute(' PRAGMA automatic_indexing=OFF; ')
-    cursor.execute(' PRAGMA foerign_keys=OFF; ')
+    
+    #Make the new databses
+    cursor.execute('''CREATE TABLE IF NOT EXISTS "SellersNew" (
+                    seller_id TEXT,
+                    seller_postal_code INTEGER);''')
+
+    cursor.execute('''CREATE TABLE "Order_itemsNew" (
+                            order_id TEXT,
+                            order_item_id INTEGER,
+                            product_id TEXT,
+                            seller_id TEXT);''')
+    
+    cursor.execute('''INSERT INTO SellersNew 
+                    SELECT seller_id, seller_postal_code
+                    FROM Sellers;''')
+
+    cursor.execute('''INSERT INTO Order_itemsNew 
+                    SELECT order_id, order_item_id, product_id, seller_id
+                    FROM Order_items;''')
+
+
+
+    cursor.execute("ALTER TABLE Sellers RENAME TO SellersOId")
+    cursor.execute("ALTER TABLE SellersNew RENAME TO Sellers")
+    
+    cursor.execute("ALTER TABLE Order_items RENAME TO Order_itemsOId")
+    cursor.execute("ALTER TABLE Order_itemsNew RENAME TO Order_items")
 
     #Commit the changes to the DB
     connection.commit()
@@ -50,7 +76,11 @@ def SelfOptimized():
 
     #Set all relevant changes
     cursor.execute(' PRAGMA automatic_indexing=ON; ')
-    cursor.execute(' PRAGMA foerign_keys=ON; ')
+    #Drop the databases from Uninformed
+    cursor.executescript('''DROP TABLE Sellers;
+                         ALTER TABLE SellersOId RENAME TO Sellers;
+                         DROP TABLE Order_items;
+                         ALTER TABLE Order_itemsOId RENAME TO Order_items;''')
     
 
     #Commit the changes to the DB
@@ -62,10 +92,18 @@ def UserOptimized():
 
     #Set all relevant changes
     cursor.execute(' PRAGMA automatic_indexing=ON; ')
-    cursor.execute(' PRAGMA foerign_keys=ON; ')
+    
+    #Set the index
+    cursor.execute("CREATE INDEX sellersIndex ON Sellers (seller_id);")
+    cursor.execute("CREATE INDEX ordersItemsIndex ON Order_items (order_id);")
+    
 
     #Commit the changes to the DB
     connection.commit()
+
+def CleanUserOptimized():
+    cursor.execute("DROP INDEX IF EXISTS sellersIndex;")
+    cursor.execute("DROP INDEX IF EXISTS ordersItemsIndex;")
 
 #Main function called on startup
 def main():
@@ -104,6 +142,9 @@ def main():
             elapsed = timeit.default_timer() - start
             scenarios[scenario][path_index] = elapsed
             print("    Tests finished...")
+            
+            #Drop the indexes made for user optimized
+            CleanUserOptimized()
 
             #Close the connection to this database
             connection.close()
@@ -135,7 +176,7 @@ def randomCode() -> list:
     connection.commit()
     return codes
 
-def plot(uninformed, selfOptimized, userOptimized, width = 0.35):
+def plot(uninformed, selfOptimized, userOptimized, width = 0.5):
     labels = ["SmallDB", "MediumDB", "LargeDB"]
     fig, ax = plt.subplots()
 
@@ -151,11 +192,9 @@ def plot(uninformed, selfOptimized, userOptimized, width = 0.35):
 
     #add labels and the legend
     ax.set_ylabel("Time (s)")
-    ax.set_title("Query 1")
+    ax.set_title("Query 4")
     ax.legend()
-
     plt.show()
-
 
 def connect(path):
     global connection, cursor
